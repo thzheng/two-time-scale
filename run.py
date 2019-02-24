@@ -21,11 +21,11 @@ def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=N
 
 class MyModel(object):
   def __init__(self, env):
-    self.d2v = False
-    self.env = env
+    self.d2v = True
+    self.env = env.unwrapped
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
-          self.observation_dim = 16
+          self.observation_dim = self.env.nS
         else:
           self.observation_dim = 1
     else:
@@ -33,16 +33,16 @@ class MyModel(object):
         self.observation_dim = self.env.observation_space.shape[0]
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
-    self.lr_actor = 0.001
+    self.lr_actor = 0.01
     self.lr_critic = 1.0*self.lr_actor
     self.output_path="results/"
     self.number_of_iterations=1000
     self.iteration_size=1000
     self.max_ep_len=100
-    self.gamma=1.0
+    self.gamma=0.9
     # model parameters
-    self.n_layers=2
-    self.layer_size=32
+    self.n_layers=0
+    self.layer_size=16
     # build model
     self.build()
 
@@ -73,10 +73,15 @@ class MyModel(object):
     self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations, self.baseline_target_placeholder: returns})
   
   def check_critic(self):
-    if self.observation_dim != 1:
+    if self.observation_dim != 1 and not self.d2v:
       return
     for s in range(4):
-      print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: [[s*4], [s*4+1], [s*4+2], [s*4+3]]}))
+      if self.d2v:
+        state_vector = [s*4, s*4+1, s*4+2, s*4+3]
+        state_vector = np.eye(self.env.nS)[state_vector]
+      else:
+        state_vector = [[s*4], [s*4+1], [s*4+2], [s*4+3]]
+      print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: state_vector}))
 
   def update_actor(self, observations, actions, advantages):
     self.sess.run(self.update_actor_op, feed_dict={self.observation_placeholder: observations, self.action_placeholder: actions, self.advantage_placeholder : advantages})
@@ -189,8 +194,11 @@ class MyModel(object):
       episode_reward = 0
 
       for step in range(self.max_ep_len):
-        if isinstance(self.env.observation_space, gym.spaces.Discrete):
-          state = [state]
+        if self.d2v:
+          state=np.eye(env.nS)[state]
+        else:
+          if isinstance(self.env.observation_space, gym.spaces.Discrete):
+            state = [state]
         states.append(state)
         action = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder : [states[-1]]})[0]
         state, reward, done, info = env.step(action)
@@ -289,7 +297,7 @@ class MyModel(object):
       msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
 
-      if (t+1)%100==0:
+      if (t+1)%1000==0:
         self.check_critic()
     print("- Training done.")
 
@@ -314,8 +322,13 @@ class MyModel(object):
       self.env.render()
       print("State: ", ob)
       time.sleep(0.25)
-      a = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder: [[ob]]})[0]
-      ob, rew, done, _ = env.step(a)
+      if self.d2v:
+        ob=[ob]
+        ob=np.eye(self.env.nS)[ob]
+      else:
+        ob=[[ob]]
+      a = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder: ob})[0]
+      ob, rew, done, _ = self.env.step(a)
       episode_reward += rew
       if done:
         break
