@@ -18,15 +18,15 @@ class MyModel(object):
     self.env = env
     self.action_dim = self.env.action_space.n
     self.lr_actor = 0.001
-    self.lr_critic = 1*self.lr_actor
+    self.lr_critic = 1.0*self.lr_actor
     self.output_path="results/"
     self.number_of_iterations=1000
-    self.iteration_size=100
+    self.iteration_size=1000
     self.max_ep_len=100
-    self.gamma=1
+    self.gamma=1.0
     # model parameters
     self.n_layers=2
-    self.layer_size=16
+    self.layer_size=32
     # build model
     self.build()
 
@@ -57,8 +57,8 @@ class MyModel(object):
     self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations[:, None], self.baseline_target_placeholder: returns})
   
   def check_critic(self):
-    for s in range(16):
-      print(s, self.sess.run(self.baseline, feed_dict={self.observation_placeholder: [[s]]}))
+    for s in range(4):
+      print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: [[s*4], [s*4+1], [s*4+2], [s*4+3]]}))
 
   def update_actor(self, observations, actions, advantages):
     self.sess.run(self.update_actor_op, feed_dict={self.observation_placeholder: observations[:, None], self.action_placeholder: actions, self.advantage_placeholder : advantages})
