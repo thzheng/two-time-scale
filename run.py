@@ -4,6 +4,12 @@ import numpy as np
 import tensorflow as tf
 import gym
 import time
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-e', '--env', help="gym environment name",
+                    default="FrozenLake-v0")
 
 def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=None):
   # n_layers hidden layers with size + one output layer with output_size
@@ -15,8 +21,18 @@ def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=N
 
 class MyModel(object):
   def __init__(self, env):
+    self.d2v = False
     self.env = env
-    self.action_dim = self.env.action_space.n
+    if isinstance(self.env.observation_space, gym.spaces.Discrete):
+        if self.d2v:
+          self.observation_dim = 16
+        else:
+          self.observation_dim = 1
+    else:
+        assert(len(self.env.observation_space.shape) == 1)
+        self.observation_dim = self.env.observation_space.shape[0]
+    self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
+    self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
     self.lr_actor = 0.001
     self.lr_critic = 1.0*self.lr_actor
     self.output_path="results/"
@@ -31,7 +47,7 @@ class MyModel(object):
     self.build()
 
   def add_placeholders_op(self):
-    self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, 1])
+    self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.observation_dim])
     self.action_placeholder = tf.placeholder(tf.int32, shape=[None,])
     self.advantage_placeholder = tf.placeholder(tf.float32, shape=[None,])
 
@@ -41,7 +57,7 @@ class MyModel(object):
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits) 
     self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder) 
     self.update_actor_op = tf.train.AdamOptimizer(learning_rate=self.lr_actor).minimize(self.actor_loss)
-  
+
   def add_critic_network_op(self, scope = "critic"):
     self.baseline = tf.squeeze(build_mlp(self.observation_placeholder, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
@@ -49,19 +65,21 @@ class MyModel(object):
 
   def calculate_advantage(self, returns, observations):
     adv = returns
-    baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations[:, None]})
+    baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
     adv-=baseline
     return adv
 
   def update_critic(self, returns, observations):
-    self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations[:, None], self.baseline_target_placeholder: returns})
+    self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations, self.baseline_target_placeholder: returns})
   
   def check_critic(self):
+    if self.observation_dim != 1:
+      return
     for s in range(4):
       print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: [[s*4], [s*4+1], [s*4+2], [s*4+3]]}))
 
   def update_actor(self, observations, actions, advantages):
-    self.sess.run(self.update_actor_op, feed_dict={self.observation_placeholder: observations[:, None], self.action_placeholder: actions, self.advantage_placeholder : advantages})
+    self.sess.run(self.update_actor_op, feed_dict={self.observation_placeholder: observations, self.action_placeholder: actions, self.advantage_placeholder : advantages})
 
 
   def build(self):
@@ -171,8 +189,10 @@ class MyModel(object):
       episode_reward = 0
 
       for step in range(self.max_ep_len):
+        if isinstance(self.env.observation_space, gym.spaces.Discrete):
+          state = [state]
         states.append(state)
-        action = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder : [[states[-1]]]})[0]
+        action = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder : [states[-1]]})[0]
         state, reward, done, info = env.step(action)
         actions.append(action)
         rewards.append(reward)
@@ -268,7 +288,7 @@ class MyModel(object):
       sigma_reward = np.sqrt(np.var(total_rewards) / len(total_rewards))
       msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
-      
+
       if (t+1)%100==0:
         self.check_critic()
     print("- Training done.")
@@ -319,7 +339,8 @@ class MyModel(object):
     self.render_single()
 
 if __name__ == '__main__':
-    env = gym.make('FrozenLake-v0')
+    args = parser.parse_args()
+    env = gym.make(args.env)
     model = MyModel(env)
     model.run()
 
