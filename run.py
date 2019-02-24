@@ -20,7 +20,7 @@ class MyModel(object):
     self.lr_actor = 0.001
     self.lr_critic = 1*self.lr_actor
     self.output_path="results/"
-    self.number_of_iterations=100
+    self.number_of_iterations=1000
     self.iteration_size=100
     self.max_ep_len=100
     self.gamma=1
@@ -269,7 +269,7 @@ class MyModel(object):
       msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
       
-      if t%100==0:
+      if (t+1)%100==0:
         self.check_critic()
     print("- Training done.")
 
@@ -292,6 +292,7 @@ class MyModel(object):
     ob = self.env.reset()
     for t in range(max_steps):
       self.env.render()
+      print("State: ", ob)
       time.sleep(0.25)
       a = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder: [[ob]]})[0]
       ob, rew, done, _ = env.step(a)
