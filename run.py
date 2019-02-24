@@ -20,7 +20,7 @@ class MyModel(object):
     self.lr_actor = 0.001
     self.lr_critic = 1*self.lr_actor
     self.output_path="results/"
-    self.number_of_iterations=1000
+    self.number_of_iterations=100
     self.iteration_size=100
     self.max_ep_len=100
     self.gamma=1
@@ -293,7 +293,7 @@ class MyModel(object):
     for t in range(max_steps):
       self.env.render()
       time.sleep(0.25)
-      a = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder: ob[:, None]})
+      a = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder: [[ob]]})[0]
       ob, rew, done, _ = env.step(a)
       episode_reward += rew
       if done:
