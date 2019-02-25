@@ -22,6 +22,7 @@ def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=N
 class MyModel(object):
   def __init__(self, env):
     self.d2v = True
+    self.use_optimal_baseline = False
     self.env = env.unwrapped
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
@@ -33,10 +34,14 @@ class MyModel(object):
         self.observation_dim = self.env.observation_space.shape[0]
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
-    self.lr_actor = 0.01
-    self.lr_critic = 1.0*self.lr_actor
+    # Timescale parameters
+    self.lr_timescale = 1.0
+    self.step_timescale = 4
+    self.lr_actor = 0.08
+    self.lr_critic = self.lr_timescale * self.lr_actor
+
     self.output_path="results/"
-    self.number_of_iterations=1000
+    self.number_of_iterations=2000
     self.iteration_size=1000
     self.max_ep_len=100
     self.gamma=0.9
@@ -66,6 +71,12 @@ class MyModel(object):
   def calculate_advantage(self, returns, observations):
     adv = returns
     baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
+    
+    # Use optial baseline
+    if self.use_optimal_baseline:
+      optimal = [0.063, 0.056, 0.071, 0.052, 0.086, 0.   , 0.11 , 0.   , 0.141, 0.244, 0.297, 0.   , 0.   , 0.378, 0.638, 0.]
+      baseline = np.sum(observations * optimal, axis=1)
+    
     adv-=baseline
     return adv
 
@@ -284,7 +295,8 @@ class MyModel(object):
       advantages = self.calculate_advantage(returns, observations)
 
       # run training operations
-      self.update_critic(returns, observations)
+      for step_i in range(self.step_timescale):
+        self.update_critic(returns, observations)
       self.update_actor(observations, actions, advantages)
 
       # summary
@@ -294,7 +306,7 @@ class MyModel(object):
       # compute reward statistics for this batch and log
       avg_reward = np.mean(total_rewards)
       sigma_reward = np.sqrt(np.var(total_rewards) / len(total_rewards))
-      msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
+      msg = str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
 
       if (t+1)%1000==0:
