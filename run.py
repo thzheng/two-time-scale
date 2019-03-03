@@ -312,8 +312,8 @@ class MyModel(object):
       msg = str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
 
-      if (t+1)%1000==0:
-        self.check_critic()
+      # if (t+1)%1000==0:
+      #   self.check_critic()
     print("- Training done.")
 
   def evaluate(self, env=None, num_episodes=1):
