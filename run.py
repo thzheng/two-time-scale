@@ -5,7 +5,7 @@ import tensorflow as tf
 import gym
 import time
 import argparse
-
+from config import get_config
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--env', help="gym environment name",
@@ -20,10 +20,12 @@ def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=N
     return tf.layers.dense(x, output_size, activation=output_activation)
 
 class MyModel(object):
-  def __init__(self, env):
-    self.d2v = True
-    self.use_optimal_baseline = False
+  def __init__(self, env, config):
     self.env = env.unwrapped
+    self.config=config
+    self.d2v = self.config.d2v
+    self.use_optimal_baseline = self.config.use_optimal_baseline
+    self.rendering = self.config.rendering
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
           self.observation_dim = self.env.nS
@@ -35,19 +37,20 @@ class MyModel(object):
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
     # Timescale parameters
-    self.lr_timescale = 1.0
-    self.step_timescale = 4
-    self.lr_actor = 0.08
-    self.lr_critic = self.lr_timescale * self.lr_actor
-
-    self.output_path="results/"
-    self.number_of_iterations=2000
-    self.iteration_size=1000
-    self.max_ep_len=100
-    self.gamma=0.9
+    self.lr_timescale = self.config.lr_timescale
+    self.step_timescale = self.config.step_timescale
+    self.lr_actor = self.config.lr_actor
+    self.lr_critic = self.lr_actor * self.lr_timescale
+    # Training parameters
+    self.number_of_iterations=self.config.number_of_iterations
+    self.iteration_size=self.config.iteration_size
+    self.max_ep_len=self.config.max_ep_len
+    self.gamma=self.config.gamma
     # model parameters
-    self.n_layers=0
-    self.layer_size=16
+    self.n_layers=self.config.n_layers
+    self.layer_size=self.config.layer_size
+    
+    self.output_path="results/"
     # build model
     self.build()
 
@@ -361,11 +364,13 @@ class MyModel(object):
     self.train()
     # evaluate
     # self.evaluate()
-    self.render_single()
+    if self.rendering:
+      self.render_single()
 
 if __name__ == '__main__':
     args = parser.parse_args()
     env = gym.make(args.env)
-    model = MyModel(env)
+    config = get_config(args.env)
+    model = MyModel(env, config)
     model.run()
 
