@@ -6,6 +6,7 @@ class config_cartpole:
         self.d2v = False
         self.rendering = False
         self.use_optimal_baseline = False
+        self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 1
@@ -30,6 +31,7 @@ class config_frozenlake:
         self.d2v = True
         self.rendering = True
         self.use_optimal_baseline = False
+        self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 4
