@@ -16,6 +16,7 @@ class config_cartpole:
         self.max_ep_len=200
         self.gamma=0.9
         # model parameters
+        self.conv_model=False
         self.n_layers=2
         self.layer_size=16
         # since we start new episodes for each batch
@@ -39,6 +40,31 @@ class config_frozenlake:
         self.max_ep_len=100
         self.gamma=0.9
         # model parameters
+        self.conv_model=False
+        self.n_layers=0
+        self.layer_size=16
+        # since we start new episodes for each batch
+        assert self.max_ep_len <= self.iteration_size
+        if self.max_ep_len < 0:
+            self.max_ep_len = self.iteration_size
+
+class config_pong:
+    def __init__(self):
+        # environment specific config
+        self.d2v = False
+        self.rendering = False
+        self.use_optimal_baseline = False
+        # Timescale parameters
+        self.lr_timescale = 1.0
+        self.step_timescale = 1
+        self.lr_actor = 0.02
+        # Training parameters
+        self.number_of_iterations=2000
+        self.iteration_size=1000
+        self.max_ep_len=-1
+        self.gamma=0.99
+        # model parameters
+        self.conv_model=True
         self.n_layers=0
         self.layer_size=16
         # since we start new episodes for each batch
@@ -51,3 +77,5 @@ def get_config(env_name):
         return config_cartpole()
     elif env_name == 'FrozenLake-v0':
         return config_frozenlake()
+    elif env_name == 'Pong-v0':
+        return config_pong()

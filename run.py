@@ -26,14 +26,21 @@ class MyModel(object):
     self.d2v = self.config.d2v
     self.use_optimal_baseline = self.config.use_optimal_baseline
     self.rendering = self.config.rendering
+    
+    # state_process enabled when 3-d (2-d plus RGB) state space used
+    self.state_process = False
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
           self.observation_dim = self.env.nS
         else:
           self.observation_dim = 1
+    elif len(self.env.observation_space.shape)==1:
+      self.observation_dim = self.env.observation_space.shape[0]
     else:
-        assert(len(self.env.observation_space.shape) == 1)
-        self.observation_dim = self.env.observation_space.shape[0]
+      self.state_process = True
+      self.state_shape = list(self.env.observation_space.shape)
+      assert(len(self.state_shape)==3)
+
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
     # Timescale parameters
@@ -55,7 +62,10 @@ class MyModel(object):
     self.build()
 
   def add_placeholders_op(self):
-    self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.observation_dim])
+    if self.state_process:
+      self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.state_shape[0], self.state_shape[1], self.state_shape[2]])
+    else:
+      self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.observation_dim])
     self.action_placeholder = tf.placeholder(tf.int32, shape=[None,])
     self.advantage_placeholder = tf.placeholder(tf.float32, shape=[None,])
 
