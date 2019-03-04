@@ -6,6 +6,7 @@ import gym
 import time
 import argparse
 from config import get_config
+from atari_wrappers import wrap_deepmind
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--env', help="gym environment name",
@@ -26,6 +27,10 @@ class MyModel(object):
     self.d2v = self.config.d2v
     self.use_optimal_baseline = self.config.use_optimal_baseline
     self.rendering = self.config.rendering
+    
+    # use wrappers
+    if self.config.wrap:
+      self.env = wrap_deepmind(self.env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
     
     # state_process enabled when 3-d (2-d plus RGB) state space used
     self.state_process = False

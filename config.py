@@ -54,6 +54,7 @@ class config_pong:
         self.d2v = False
         self.rendering = False
         self.use_optimal_baseline = False
+        self.wrap=True
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 1
