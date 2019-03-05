@@ -64,7 +64,7 @@ class config_pong:
         self.step_timescale = 1
         self.lr_actor = 0.001
         # Training parameters
-        self.number_of_iterations=2000
+        self.number_of_iterations=int(1e8)
         self.iteration_size=1000
         self.max_ep_len=-1
         self.gamma=0.99

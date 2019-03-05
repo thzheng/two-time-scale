@@ -78,7 +78,10 @@ class MyModel(object):
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits) 
     self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder) 
-    self.update_actor_op = tf.train.AdamOptimizer(learning_rate=self.lr_actor).minimize(self.actor_loss)
+    learning_rate = tf.train.exponential_decay(self.config.lr_actor,
+                                               self.config.number_of_iterations,
+                                               1000, 0.96, staircase=False)
+    self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder
@@ -86,7 +89,10 @@ class MyModel(object):
       state_tensor=build_cnn(state_tensor, scope)
     self.baseline = tf.squeeze(build_mlp(state_tensor, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
-    self.update_critic_op = tf.train.AdamOptimizer(learning_rate=self.lr_critic).minimize(tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope))
+    learning_rate = tf.train.exponential_decay(self.lr_critic,
+                                               self.config.number_of_iterations,
+                                               1000, 0.96, staircase=False)
+    self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope))
 
   def calculate_advantage(self, returns, observations):
     adv = returns
