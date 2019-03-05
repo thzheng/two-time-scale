@@ -5,6 +5,7 @@ import tensorflow as tf
 import gym
 import time
 import argparse
+from model import build_cnn
 from model import build_mlp
 from config import get_config
 from atari_wrappers import wrap_deepmind
@@ -26,8 +27,8 @@ class MyModel(object):
     if self.config.wrap:
       self.env = wrap_deepmind(self.env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
     
-    # state_process enabled when 3-d (2-d plus RGB) state space used
-    self.state_process = False
+    # use_state_shape enabled when 3-d (2-d plus RGB) state space used
+    self.use_state_shape=False
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
           self.observation_dim = self.env.nS
@@ -36,7 +37,7 @@ class MyModel(object):
     elif len(self.env.observation_space.shape)==1:
       self.observation_dim = self.env.observation_space.shape[0]
     else:
-      self.state_process = True
+      self.use_state_shape = True
       self.state_shape = list(self.env.observation_space.shape)
       assert(len(self.state_shape)==3)
 
@@ -53,6 +54,7 @@ class MyModel(object):
     self.max_ep_len=self.config.max_ep_len
     self.gamma=self.config.gamma
     # model parameters
+    self.use_cnn=self.config.use_cnn
     self.n_layers=self.config.n_layers
     self.layer_size=self.config.layer_size
     
@@ -61,7 +63,7 @@ class MyModel(object):
     self.build()
 
   def add_placeholders_op(self):
-    if self.state_process:
+    if self.use_state_shape:
       self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.state_shape[0], self.state_shape[1], self.state_shape[2]])
     else:
       self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.observation_dim])
@@ -69,14 +71,20 @@ class MyModel(object):
     self.advantage_placeholder = tf.placeholder(tf.float32, shape=[None,])
 
   def add_actor_network_op(self, scope = "actor"):
-    action_logits = build_mlp(self.observation_placeholder, self.action_dim, scope, self.n_layers, self.layer_size)
+    state_tensor=self.observation_placeholder
+    if self.use_cnn:
+      state_tensor=build_cnn(state_tensor, scope)
+    action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits) 
     self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder) 
     self.update_actor_op = tf.train.AdamOptimizer(learning_rate=self.lr_actor).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
-    self.baseline = tf.squeeze(build_mlp(self.observation_placeholder, 1, scope, self.n_layers, self.layer_size), axis=1)
+    state_tensor=self.observation_placeholder
+    if self.use_cnn:
+      state_tensor=build_cnn(state_tensor, scope)
+    self.baseline = tf.squeeze(build_mlp(state_tensor, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
     self.update_critic_op = tf.train.AdamOptimizer(learning_rate=self.lr_critic).minimize(tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope))
 

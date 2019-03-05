@@ -6,3 +6,4 @@ pyvenv.cfg
 share
 results
 __pycache__
+*.swp

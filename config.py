@@ -17,6 +17,7 @@ class config_cartpole:
         self.max_ep_len=200
         self.gamma=0.9
         # model parameters
+        self.use_cnn=False
         self.conv_model=False
         self.n_layers=2
         self.layer_size=16
@@ -42,6 +43,7 @@ class config_frozenlake:
         self.max_ep_len=100
         self.gamma=0.9
         # model parameters
+        self.use_cnn=False
         self.conv_model=False
         self.n_layers=0
         self.layer_size=16
@@ -67,6 +69,7 @@ class config_pong:
         self.max_ep_len=-1
         self.gamma=0.99
         # model parameters
+        self.use_cnn=True
         self.conv_model=True
         self.n_layers=0
         self.layer_size=16
