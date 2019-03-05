@@ -25,7 +25,7 @@ class MyModel(object):
     
     # use wrappers
     if self.config.wrap:
-      self.env = wrap_deepmind(self.env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
+      self.env = wrap_deepmind(self.env, episode_life=False, clip_rewards=True, frame_stack=True, scale=True)
     
     # use_state_shape enabled when 3-d (2-d plus RGB) state space used
     self.use_state_shape=False

@@ -62,7 +62,7 @@ class config_pong:
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 1
-        self.lr_actor = 0.02
+        self.lr_actor = 0.001
         # Training parameters
         self.number_of_iterations=2000
         self.iteration_size=1000
@@ -71,8 +71,8 @@ class config_pong:
         # model parameters
         self.use_cnn=True
         self.conv_model=True
-        self.n_layers=0
-        self.layer_size=16
+        self.n_layers=2
+        self.layer_size=64
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
