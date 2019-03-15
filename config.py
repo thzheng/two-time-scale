@@ -35,8 +35,8 @@ class config_frozenlake:
         self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
-        self.step_timescale = 4
-        self.lr_actor = 0.02
+        self.step_timescale = 1
+        self.lr_actor = 0.001
         # Training parameters
         self.number_of_iterations=2000
         self.iteration_size=1000
@@ -45,7 +45,7 @@ class config_frozenlake:
         # model parameters
         self.use_cnn=False
         self.conv_model=False
-        self.n_layers=0
+        self.n_layers=1
         self.layer_size=16
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
@@ -85,3 +85,5 @@ def get_config(env_name):
         return config_frozenlake()
     elif env_name == 'Pong-v0':
         return config_pong()
+    elif "FrozenLake" in env_name:
+        return config_frozenlake()

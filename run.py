@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 import gym
+from lake_envs import *
 import time
 import argparse
 from model import build_cnn
@@ -16,8 +17,24 @@ parser.add_argument('-e', '--env', help="gym environment name",
                     default="FrozenLake-v0")
 parser.add_argument('--seed', default=0, help="randome seed")
 
+def get_result_dir(root_dir):
+    dirs = [os.path.basename(x[0]) for x in os.walk(root_dir)]
+    dirs.remove(os.path.basename(root_dir))
+    nums = []
+    for d in dirs:
+        try:
+            n = int(d)
+            nums.append(n)
+        except ValueError:
+            continue
+    if len(nums) == 0:
+        return "0"
+    dir = str(max(nums) + 1)
+    return dir
+
+
 class MyModel(object):
-  def __init__(self, env, config):
+  def __init__(self, env, config, env_name):
     self.env = env.unwrapped
     self.config=config
     self.d2v = self.config.d2v
@@ -58,8 +75,10 @@ class MyModel(object):
     self.use_cnn=self.config.use_cnn
     self.n_layers=self.config.n_layers
     self.layer_size=self.config.layer_size
-    
-    self.output_path="results/"
+
+    dir_root = os.path.join("results/", env_name)
+    dir_name = get_result_dir(dir_root)
+    self.output_path= os.path.join(dir_root, dir_name)
     # build model
     self.build()
 
@@ -76,12 +95,17 @@ class MyModel(object):
     if self.use_cnn:
       state_tensor=build_cnn(state_tensor, scope)
     action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
+    print(action_logits.get_shape())
+    policy_entropy = -tf.reduce_sum(tf.nn.softmax(action_logits) * tf.nn.log_softmax(action_logits), -1)
+    print(policy_entropy.get_shape())
+    self.policy_entropy = tf.reduce_sum(policy_entropy)
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
     self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder)
     learning_rate = tf.train.exponential_decay(self.config.lr_actor,
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
+    tf.summary.scalar("lr/actor", learning_rate)
     self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
@@ -93,6 +117,7 @@ class MyModel(object):
     learning_rate = tf.train.exponential_decay(self.lr_critic,
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
+    tf.summary.scalar("lr/critic", learning_rate)
     self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope))
 
   def calculate_advantage(self, returns, observations):
@@ -161,11 +186,12 @@ class MyModel(object):
     self.eval_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="eval_reward")
 
     # extra summaries from python -> placeholders
-    tf.summary.scalar("Avg Reward", self.avg_reward_placeholder)
-    tf.summary.scalar("Max Reward", self.max_reward_placeholder)
-    tf.summary.scalar("Std Reward", self.std_reward_placeholder)
-    tf.summary.scalar("Eval Reward", self.eval_reward_placeholder)
+    tf.summary.scalar("reward/Avg", self.avg_reward_placeholder)
+    tf.summary.scalar("reward/Max", self.max_reward_placeholder)
+    tf.summary.scalar("reward/Std", self.std_reward_placeholder)
+    tf.summary.scalar("reward/Eval", self.eval_reward_placeholder)
 
+    tf.summary.scalar("debug/policy_entropy", self.policy_entropy)
     # logging
     self.merged = tf.summary.merge_all()
     self.file_writer = tf.summary.FileWriter(self.output_path, self.sess.graph)
@@ -190,7 +216,7 @@ class MyModel(object):
     if len(scores_eval) > 0:
       self.eval_reward = scores_eval[-1]
 
-  def record_summary(self, t):
+  def record_summary(self, t, observations):
     """
     Add summary to tensorboard
     """
@@ -200,6 +226,7 @@ class MyModel(object):
       self.max_reward_placeholder: self.max_reward,
       self.std_reward_placeholder: self.std_reward,
       self.eval_reward_placeholder: self.eval_reward,
+      self.observation_placeholder: observations,
     }
     summary = self.sess.run(self.merged, feed_dict=fd)
     # tensorboard stuff
@@ -239,6 +266,7 @@ class MyModel(object):
             state = [state]
         states.append(state)
         action = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder : [states[-1]]})[0]
+        #env.render()
         state, reward, done, info = env.step(action)
         actions.append(action)
         rewards.append(reward)
@@ -258,6 +286,7 @@ class MyModel(object):
       if num_episodes and episode >= num_episodes:
         break
 
+    #print(paths)
     return paths, episode_rewards
 
   def get_returns(self, paths):
@@ -328,7 +357,7 @@ class MyModel(object):
 
       # summary
       self.update_averages(total_rewards, scores_eval)
-      self.record_summary(t)
+      self.record_summary(t, observations)
 
       # compute reward statistics for this batch and log
       avg_reward = np.mean(total_rewards)
@@ -397,6 +426,6 @@ if __name__ == '__main__':
     env = gym.make(args.env)
     env.seed(args.seed)
     config = get_config(args.env)
-    model = MyModel(env, config)
+    model = MyModel(env, config, args.env)
     model.run()
 
