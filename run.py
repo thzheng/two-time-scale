@@ -14,6 +14,7 @@ from atari_wrappers import wrap_deepmind
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--env', help="gym environment name",
                     default="FrozenLake-v0")
+parser.add_argument('--seed', default=0, help="randome seed")
 
 class MyModel(object):
   def __init__(self, env, config):
@@ -22,11 +23,11 @@ class MyModel(object):
     self.d2v = self.config.d2v
     self.use_optimal_baseline = self.config.use_optimal_baseline
     self.rendering = self.config.rendering
-    
+
     # use wrappers
     if self.config.wrap:
       self.env = wrap_deepmind(self.env, episode_life=False, clip_rewards=True, frame_stack=True, scale=True)
-    
+
     # use_state_shape enabled when 3-d (2-d plus RGB) state space used
     self.use_state_shape=False
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
@@ -76,8 +77,8 @@ class MyModel(object):
       state_tensor=build_cnn(state_tensor, scope)
     action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
-    self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits) 
-    self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder) 
+    self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
+    self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder)
     learning_rate = tf.train.exponential_decay(self.config.lr_actor,
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
@@ -97,18 +98,18 @@ class MyModel(object):
   def calculate_advantage(self, returns, observations):
     adv = returns
     baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
-    
+
     # Use optial baseline
     if self.use_optimal_baseline:
       optimal = [0.063, 0.056, 0.071, 0.052, 0.086, 0.   , 0.11 , 0.   , 0.141, 0.244, 0.297, 0.   , 0.   , 0.378, 0.638, 0.]
       baseline = np.sum(observations * optimal, axis=1)
-    
+
     adv-=baseline
     return adv
 
   def update_critic(self, returns, observations):
     self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations, self.baseline_target_placeholder: returns})
-  
+
   def check_critic(self):
     if self.observation_dim != 1 and not self.d2v:
       return
@@ -392,7 +393,9 @@ class MyModel(object):
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    tf.random.set_random_seed(args.seed)
     env = gym.make(args.env)
+    env.seed(args.seed)
     config = get_config(args.env)
     model = MyModel(env, config)
     model.run()
