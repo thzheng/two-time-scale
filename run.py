@@ -152,7 +152,7 @@ class MyModel(object):
     #print("new baseline", baseline)
     #print("old adv", adv - baseline_old)
     adv-=baseline
-    adv = adv - np.mean(adv)
+    #adv = adv - np.mean(adv)
     #print("adv", adv)
     return adv
 
