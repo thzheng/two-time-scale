@@ -104,11 +104,12 @@ class MyModel(object):
     self.policy_entropy = tf.reduce_sum(policy_entropy)
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
-    self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder)
-    self.actor_loss = self.actor_loss - self.policy_entropy * 0.001
-    num_env_frames = tf.train.get_global_step()
-    print("[actor]num_env_frames", num_env_frames)
-    learning_rate = tf.train.polynomial_decay(self.config.lr_actor, num_env_frames,
+    self.actor_loss = -tf.reduce_mean(self.logprob * self.advantage_placeholder)
+    # self.actor_loss = self.actor_loss - self.policy_entropy * 0.001
+    global_step = tf.train.get_or_create_global_step()
+    tf.summary.scalar("debug/global_step", global_step)
+    print("[actor]num_env_frames", global_step)
+    learning_rate = tf.train.polynomial_decay(self.config.lr_actor, global_step,
                                                   self.config.number_of_iterations, 0)
     #learning_rate = tf.train.exponential_decay(self.config.lr_actor,
     #                                           self.config.number_of_iterations,
@@ -116,7 +117,7 @@ class MyModel(object):
     tf.summary.scalar("lr/actor", learning_rate)
     #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
-    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss)
+    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss, global_step = global_step)
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder
@@ -124,9 +125,9 @@ class MyModel(object):
       state_tensor=build_cnn(state_tensor, scope)
     self.baseline = tf.squeeze(build_mlp(state_tensor, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
-    num_env_frames = tf.train.get_global_step()
-    print("[critic]num_env_frames", num_env_frames)
-    learning_rate = tf.train.polynomial_decay(self.lr_critic, num_env_frames,
+    global_step = tf.train.get_or_create_global_step()
+    print("[critic]num_env_frames", global_step)
+    learning_rate = tf.train.polynomial_decay(self.lr_critic, global_step,
                                                   self.config.number_of_iterations, 0)
     #learning_rate = tf.train.exponential_decay(self.lr_critic,
     #                                           self.config.number_of_iterations,
