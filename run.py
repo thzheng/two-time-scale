@@ -44,7 +44,7 @@ class MyModel(object):
 
     # use wrappers
     if self.config.wrap:
-      self.env = wrap_deepmind(self.env, episode_life=False, clip_rewards=True, frame_stack=True, scale=True)
+      self.env = wrap_deepmind(self.env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
 
     # use_state_shape enabled when 3-d (2-d plus RGB) state space used
     self.use_state_shape=False
@@ -56,6 +56,7 @@ class MyModel(object):
     elif len(self.env.observation_space.shape)==1:
       self.observation_dim = self.env.observation_space.shape[0]
     else:
+      self.observation_dim = None
       self.use_state_shape = True
       self.state_shape = list(self.env.observation_space.shape)
       assert(len(self.state_shape)==3)
@@ -104,13 +105,18 @@ class MyModel(object):
     self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
     self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
     self.actor_loss = -tf.reduce_sum(self.logprob * self.advantage_placeholder)
-    learning_rate = tf.train.exponential_decay(self.config.lr_actor,
-                                               self.config.number_of_iterations,
-                                               1000, 0.96, staircase=False)
+    self.actor_loss = self.actor_loss - self.policy_entropy * 0.001
+    num_env_frames = tf.train.get_global_step()
+    print("[actor]num_env_frames", num_env_frames)
+    learning_rate = tf.train.polynomial_decay(self.config.lr_actor, num_env_frames,
+                                                  self.config.number_of_iterations, 0)
+    #learning_rate = tf.train.exponential_decay(self.config.lr_actor,
+    #                                           self.config.number_of_iterations,
+    #                                           1000, 0.96, staircase=False)
     tf.summary.scalar("lr/actor", learning_rate)
-    self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
-    #self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder
@@ -118,13 +124,18 @@ class MyModel(object):
       state_tensor=build_cnn(state_tensor, scope)
     self.baseline = tf.squeeze(build_mlp(state_tensor, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
-    learning_rate = tf.train.exponential_decay(self.lr_critic,
-                                               self.config.number_of_iterations,
-                                               1000, 0.96, staircase=False)
+    num_env_frames = tf.train.get_global_step()
+    print("[critic]num_env_frames", num_env_frames)
+    learning_rate = tf.train.polynomial_decay(self.lr_critic, num_env_frames,
+                                                  self.config.number_of_iterations, 0)
+    #learning_rate = tf.train.exponential_decay(self.lr_critic,
+    #                                           self.config.number_of_iterations,
+    #                                           1000, 0.96, staircase=False)
     tf.summary.scalar("lr/critic", learning_rate)
     self.critic_loss = tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope)
     #tf.summary.scalar("loss/actor", critic_loss)
-    self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.critic_loss)
+    #self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.critic_loss)
+    self.update_critic_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.critic_loss)
 
   def calculate_advantage(self, returns, observations):
     adv = returns
@@ -160,6 +171,8 @@ class MyModel(object):
     self.sess.run(self.update_critic_op, feed_dict={self.observation_placeholder: observations, self.baseline_target_placeholder: returns})
 
   def check_critic(self):
+    if self.observation_dim is None:
+      return
     if self.observation_dim != 1 and not self.d2v:
       return
     #self.env.nS
@@ -190,6 +203,13 @@ class MyModel(object):
     """
     Build the model by adding all necessary variables.
     """
+    tf.get_variable(
+	'num_environment_frames',
+	initializer=tf.zeros_initializer(),
+	shape=[],
+	dtype=tf.int64,
+	trainable=False,
+	collections=[tf.GraphKeys.GLOBAL_STEP, tf.GraphKeys.GLOBAL_VARIABLES])
     # add placeholders
     self.add_placeholders_op()
     # create actor
@@ -247,6 +267,7 @@ class MyModel(object):
     """
     Update the averages.
     """
+    print(rewards)
     self.avg_reward = np.mean(rewards)
     self.max_reward = np.max(rewards)
     self.std_reward = np.sqrt(np.var(rewards) / len(rewards))

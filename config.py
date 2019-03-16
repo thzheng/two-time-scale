@@ -105,6 +105,32 @@ class config_continuous:
         if self.max_ep_len < 0:
             self.max_ep_len = self.iteration_size
 
+class config_atari:
+    def __init__(self):
+        # environment specific config
+        self.d2v = False
+        self.rendering = False
+        self.use_optimal_baseline = False
+        self.wrap=True
+        # Timescale parameters
+        self.lr_timescale = 1.0
+        self.step_timescale = 2
+        self.lr_actor = 0.0006
+        # Training parameters
+        self.number_of_iterations=int(1e8)
+        self.iteration_size=1500
+        self.max_ep_len=-1
+        self.gamma=0.99
+        # model parameters
+        self.use_cnn=True
+        self.conv_model=True
+        self.n_layers=1
+        self.layer_size=512
+        # since we start new episodes for each batch
+        assert self.max_ep_len <= self.iteration_size
+        if self.max_ep_len < 0:
+            self.max_ep_len = self.iteration_size
+
 def get_config(env_name):
     if env_name == 'CartPole-v1':
         return config_cartpole()
@@ -114,5 +140,7 @@ def get_config(env_name):
         return config_pong()
     elif "FrozenLake" in env_name:
         return config_frozenlake()
+    elif "Breakout" :
+        return config_atari()
     else:
         return config_continuous()
