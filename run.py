@@ -108,9 +108,9 @@ class MyModel(object):
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
     tf.summary.scalar("lr/actor", learning_rate)
-    #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
-    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    #self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder

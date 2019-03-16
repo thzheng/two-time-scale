@@ -37,7 +37,7 @@ class config_frozenlake:
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 1
-        self.lr_actor = 0.001
+        self.lr_actor = 0.0001
         # Training parameters
         self.number_of_iterations=2000
         self.iteration_size=1000
