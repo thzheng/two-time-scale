@@ -15,7 +15,7 @@ from atari_wrappers import wrap_deepmind
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--env', help="gym environment name",
                     default="FrozenLake-v0")
-parser.add_argument('--seed', default=0, help="randome seed")
+parser.add_argument('-s', '--seed',  default=0, help="randome seed")
 
 def get_result_dir(root_dir):
     dirs = [os.path.basename(x[0]) for x in os.walk(root_dir)]
@@ -487,9 +487,9 @@ class MyModel(object):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    tf.random.set_random_seed(args.seed)
+    tf.random.set_random_seed(int(args.seed))
     env = gym.make(args.env)
-    env.seed(args.seed)
+    env.seed(int(args.seed))
     config = get_config(args.env)
     model = MyModel(env, config, args.env)
     model.run()
