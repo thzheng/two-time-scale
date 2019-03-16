@@ -29,6 +29,7 @@ class config_cartpole:
 class config_frozenlake:
     def __init__(self):
         # environment specific config
+        # use one hot vectors for state
         self.d2v = True
         self.rendering = True
         self.use_optimal_baseline = False

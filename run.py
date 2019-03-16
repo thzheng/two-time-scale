@@ -19,7 +19,8 @@ parser.add_argument('--seed', default=0, help="randome seed")
 
 def get_result_dir(root_dir):
     dirs = [os.path.basename(x[0]) for x in os.walk(root_dir)]
-    dirs.remove(os.path.basename(root_dir))
+    if root_dir in dirs:
+      dirs.remove(os.path.basename(root_dir))
     nums = []
     for d in dirs:
         try:
@@ -86,6 +87,7 @@ class MyModel(object):
     if self.use_state_shape:
       self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.state_shape[0], self.state_shape[1], self.state_shape[2]])
     else:
+      # observation_placeholder -> N x M, N batches, M env.nS
       self.observation_placeholder = tf.placeholder(tf.float32, shape=[None, self.observation_dim])
     self.action_placeholder = tf.placeholder(tf.int32, shape=[None,])
     self.advantage_placeholder = tf.placeholder(tf.float32, shape=[None,])
@@ -106,7 +108,9 @@ class MyModel(object):
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
     tf.summary.scalar("lr/actor", learning_rate)
-    self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
+    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder
@@ -118,18 +122,38 @@ class MyModel(object):
                                                self.config.number_of_iterations,
                                                1000, 0.96, staircase=False)
     tf.summary.scalar("lr/critic", learning_rate)
-    self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope))
+    self.critic_loss = tf.losses.mean_squared_error(self.baseline, self.baseline_target_placeholder, scope=scope)
+    #tf.summary.scalar("loss/actor", critic_loss)
+    self.update_critic_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.critic_loss)
 
   def calculate_advantage(self, returns, observations):
     adv = returns
+    #print(returns)
+    #print(returns.shape)
     baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
+    baseline_old = baseline
 
+    #print("old baseline", baseline)
     # Use optial baseline
     if self.use_optimal_baseline:
-      optimal = [0.063, 0.056, 0.071, 0.052, 0.086, 0.   , 0.11 , 0.   , 0.141, 0.244, 0.297, 0.   , 0.   , 0.378, 0.638, 0.]
+      if len(observations[0]) == 4:
+        optimal = [0.063, 0.056, 0.071, 0.052, 0.086, 0.   , 0.11 , 0.   , 0.141, 0.244, 0.297, 0.   , 0.   , 0.378, 0.638, 0.]
+      else:
+        optimal = [0.254,0.282,0.314,0.349,0.387,0.43,0.478,0.531,0.282,0.314,
+0.349,0.387,0.43,0.478,0.531,0.59,0.314,0.349,0.387,0.,0.478,0.531,0.59,0.656,
+0.349,0.387,0.43,0.478,0.531,0.,0.656,0.729,0.314,0.349,0.387,0.,
+0.59,0.656,0.729,0.81,0.282,0.,0.,0.59,0.656,0.729,0.,0.9,
+0.314,0.,0.478,0.531,0.,0.81,0.,1.,0.349,0.387,0.43,0.,0.81,0.9,1.,0.,]
+      # TODO(jiale) based on my intuation, this should encourage exploration
+      #optimal.reverse()
+      #print("observations", observations)
       baseline = np.sum(observations * optimal, axis=1)
 
+    #print("new baseline", baseline)
+    #print("old adv", adv - baseline_old)
     adv-=baseline
+    adv = adv - np.mean(adv)
+    #print("adv", adv)
     return adv
 
   def update_critic(self, returns, observations):
@@ -138,12 +162,24 @@ class MyModel(object):
   def check_critic(self):
     if self.observation_dim != 1 and not self.d2v:
       return
-    for s in range(4):
+    #self.env.nS
+    if self.d2v:
+      l = int(np.sqrt(self.env.nS))
+      d = np.eye(self.env.nS)
+      np.set_printoptions(linewidth=150, suppress=True)
+      values = self.sess.run(self.baseline, feed_dict={self.observation_placeholder: d})
+      values = values.reshape((l, l))
+      print(values)
+      return
+
+    for s in range(self.env.nS):
       if self.d2v:
-        state_vector = [s*4, s*4+1, s*4+2, s*4+3]
-        state_vector = np.eye(self.env.nS)[state_vector]
+        #state_vector = [s*4, s*4+1, s*4+2, s*4+3]
+        #state_vector = np.eye(self.env.nS)[state_vector]
+        state_vector = d
       else:
         state_vector = [[s*4], [s*4+1], [s*4+2], [s*4+3]]
+
       print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: state_vector}))
 
   def update_actor(self, observations, actions, advantages):
@@ -192,6 +228,8 @@ class MyModel(object):
     tf.summary.scalar("reward/Eval", self.eval_reward_placeholder)
 
     tf.summary.scalar("debug/policy_entropy", self.policy_entropy)
+    tf.summary.scalar("debug/actor_loss", self.actor_loss)
+    tf.summary.scalar("debug/critic_loss", self.critic_loss)
     # logging
     self.merged = tf.summary.merge_all()
     self.file_writer = tf.summary.FileWriter(self.output_path, self.sess.graph)
@@ -216,7 +254,7 @@ class MyModel(object):
     if len(scores_eval) > 0:
       self.eval_reward = scores_eval[-1]
 
-  def record_summary(self, t, observations):
+  def record_summary(self, t, observations, actions, advantages, returns):
     """
     Add summary to tensorboard
     """
@@ -227,6 +265,9 @@ class MyModel(object):
       self.std_reward_placeholder: self.std_reward,
       self.eval_reward_placeholder: self.eval_reward,
       self.observation_placeholder: observations,
+      self.action_placeholder: actions,
+      self.advantage_placeholder: advantages,
+      self.baseline_target_placeholder: returns,
     }
     summary = self.sess.run(self.merged, feed_dict=fd)
     # tensorboard stuff
@@ -281,6 +322,7 @@ class MyModel(object):
       path = {"observation" : np.array(states),
                       "reward" : np.array(rewards),
                       "action" : np.array(actions)}
+      #print("pathlen", len(states))
       paths.append(path)
       episode += 1
       if num_episodes and episode >= num_episodes:
@@ -344,6 +386,8 @@ class MyModel(object):
       paths, total_rewards = self.sample_path(self.env)
       scores_eval = scores_eval + total_rewards
       observations = np.concatenate([path["observation"] for path in paths])
+      #print("observations", observations)
+      #print("observations shape", observations.shape)
       actions = np.concatenate([path["action"] for path in paths])
       rewards = np.concatenate([path["reward"] for path in paths])
       # compute Q-val estimates (discounted future returns) for each time step
@@ -357,7 +401,7 @@ class MyModel(object):
 
       # summary
       self.update_averages(total_rewards, scores_eval)
-      self.record_summary(t, observations)
+      self.record_summary(t, observations, actions, advantages, returns)
 
       # compute reward statistics for this batch and log
       avg_reward = np.mean(total_rewards)
@@ -365,8 +409,8 @@ class MyModel(object):
       msg = str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
       print(msg)
 
-      # if (t+1)%1000==0:
-      #   self.check_critic()
+      if (t+1)%10==1:
+         self.check_critic()
     print("- Training done.")
 
   def evaluate(self, env=None, num_episodes=1):
