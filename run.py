@@ -396,7 +396,7 @@ class MyModel(object):
     # tensorboard stuff
     self.file_writer.add_summary(summary, t)
 
-  def sample_path(self, env, actor_idx, num_episodes = None, render=False):
+  def sample_path(self, env, actor_idx, num_episodes = None, render=False, num_step=None):
     """
     Sample paths (trajectories) from the environment.
 
@@ -441,10 +441,12 @@ class MyModel(object):
             frame = ''
             for row in rs2:
                 frame = frame + ' '.join(row) + "\n"
-            sys.stdout.write(frame)
-            sys.stdout.flush()
-            if done:
-                print('-------------------------------------------------')
+            outfile = os.path.join(self.output_path, "{}_{}.txt").format(num_step, actor_idx)
+            with open(outfile, "a") as f:
+                f.write(frame)
+                if done:
+                    f.write('-------------------------------------------------')
+                f.flush()
         actions.append(action)
         rewards.append(reward)
         episode_reward += reward
@@ -464,6 +466,8 @@ class MyModel(object):
       if num_episodes and episode >= num_episodes:
         break
 
+    if render:
+      print("wrote rendered txt to {}".format(outfile))
     #print(paths)
     return paths, episode_rewards
 
@@ -524,7 +528,7 @@ class MyModel(object):
             render = True
         else:
             render = False
-        paths, total_rewards = self.sample_path(self.env, i, render=render)
+        paths, total_rewards = self.sample_path(self.env, i, render=render, num_step=t)
         scores_eval = scores_eval + total_rewards
         observations = np.concatenate([path["observation"] for path in paths])
         #print("observations", observations)
