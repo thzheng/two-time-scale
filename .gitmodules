@@ -1,0 +1,3 @@
+[submodule "MinAtar"]
+	path = MinAtar
+	url = git@github.com:calio/MinAtar.git
