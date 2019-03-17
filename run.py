@@ -6,10 +6,11 @@ import gym
 from lake_envs import *
 import time
 import argparse
-from model import build_cnn
+from model import build_cnn, build_small_cnn
 from model import build_mlp
 from config import get_config
 from atari_wrappers import wrap_deepmind
+from minatar import Make
 
 
 parser = argparse.ArgumentParser()
@@ -42,11 +43,17 @@ class MyModel(object):
     self.use_optimal_baseline = self.config.use_optimal_baseline
     self.rendering = self.config.rendering
 
+    wrap = self.config.wrap
+    use_minatar = not hasattr(self.env.unwrapped, "ale")
+    if use_minatar:
+      print("MinAtar doesn't support wrap")
+      wrap = False
+
     # use wrappers
-    if self.config.wrap:
+    if wrap:
       self.env = wrap_deepmind(self.env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
 
-    # use_state_shape enabled when 3-d (2-d plus RGB) state space used
+    # use_state_shapeTrue enabled when 3-d (2-d plus RGB) state space used
     self.use_state_shape=False
     if isinstance(self.env.observation_space, gym.spaces.Discrete):
         if self.d2v:
@@ -62,6 +69,9 @@ class MyModel(object):
       assert(len(self.state_shape)==3)
 
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
+    if use_minatar:
+      print("action_dim discrete")
+      self.discrete = True
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
     # Timescale parameters
     self.lr_timescale = self.config.lr_timescale
@@ -75,12 +85,14 @@ class MyModel(object):
     self.gamma=self.config.gamma
     # model parameters
     self.use_cnn=self.config.use_cnn
+    self.use_small_cnn=self.config.use_small_cnn
     self.n_layers=self.config.n_layers
     self.layer_size=self.config.layer_size
 
     dir_root = os.path.join("results/", env_name)
     dir_name = get_result_dir(dir_root)
     self.output_path= os.path.join(dir_root, dir_name)
+    assert not(self.use_cnn and self.use_small_cnn)
     # build model
     self.build()
 
@@ -97,7 +109,13 @@ class MyModel(object):
     state_tensor=self.observation_placeholder
     if self.use_cnn:
       state_tensor=build_cnn(state_tensor, scope)
+    elif self.use_small_cnn:
+      state_tensor=build_small_cnn(state_tensor, scope)
+
+    print("state_tensor.get_shape()")
+    print(state_tensor.get_shape())
     action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
+    print("action_logits.get_shape()")
     print(action_logits.get_shape())
     policy_entropy = -tf.reduce_sum(tf.nn.softmax(action_logits) * tf.nn.log_softmax(action_logits), -1)
     print(policy_entropy.get_shape())
@@ -123,6 +141,8 @@ class MyModel(object):
     state_tensor=self.observation_placeholder
     if self.use_cnn:
       state_tensor=build_cnn(state_tensor, scope)
+    elif self.use_small_cnn:
+      state_tensor=build_small_cnn(state_tensor, scope)
     self.baseline = tf.squeeze(build_mlp(state_tensor, 1, scope, self.n_layers, self.layer_size), axis=1)
     self.baseline_target_placeholder = tf.placeholder(tf.float32, shape=[None])
     global_step = tf.train.get_or_create_global_step()
@@ -488,10 +508,15 @@ class MyModel(object):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    tf.random.set_random_seed(int(args.seed))
-    env = gym.make(args.env)
-    env.seed(int(args.seed))
+    seed = int(args.seed)
+    tf.random.set_random_seed(seed)
+
+    if "-v" in args.env:
+      env = gym.make(args.env)
+      env.seed(seed)
+    else:
+      env = Make(args.env, seed)
+
     config = get_config(args.env)
     model = MyModel(env, config, args.env)
     model.run()
-

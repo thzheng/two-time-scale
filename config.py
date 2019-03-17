@@ -18,7 +18,7 @@ class config_cartpole:
         self.gamma=0.9
         # model parameters
         self.use_cnn=False
-        self.conv_model=False
+        self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=16
         # since we start new episodes for each batch
@@ -45,7 +45,7 @@ class config_frozenlake:
         self.gamma=0.9
         # model parameters
         self.use_cnn=False
-        self.conv_model=False
+        self.use_small_cnn=False
         self.n_layers=1
         self.layer_size=16
         # since we start new episodes for each batch
@@ -71,7 +71,7 @@ class config_pong:
         self.gamma=0.99
         # model parameters
         self.use_cnn=True
-        self.conv_model=True
+        self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=64
         # since we start new episodes for each batch
@@ -97,7 +97,7 @@ class config_continuous:
         self.gamma=0.9
         # model parameters
         self.use_cnn=False
-        self.conv_model=False
+        self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=16
         # since we start new episodes for each batch
@@ -123,9 +123,36 @@ class config_atari:
         self.gamma=0.99
         # model parameters
         self.use_cnn=True
-        self.conv_model=True
+        self.use_small_cnn=False
         self.n_layers=1
         self.layer_size=512
+        # since we start new episodes for each batch
+        assert self.max_ep_len <= self.iteration_size
+        if self.max_ep_len < 0:
+            self.max_ep_len = self.iteration_size
+
+class config_minatar:
+    def __init__(self):
+        # environment specific config
+        # use one hot vectors for state
+        self.d2v = False
+        self.rendering = False
+        self.use_optimal_baseline = False
+        self.wrap=False
+        # Timescale parameters
+        self.lr_timescale = 1.0
+        self.step_timescale = 2
+        self.lr_actor = 0.01
+        # Training parameters
+        self.number_of_iterations=int(1e6)
+        self.iteration_size=1000
+        self.max_ep_len=-1
+        self.gamma=0.99
+        # model parameters
+        self.use_cnn=False
+        self.use_small_cnn=True
+        self.n_layers=1
+        self.layer_size=128
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -140,7 +167,8 @@ def get_config(env_name):
         return config_pong()
     elif "FrozenLake" in env_name:
         return config_frozenlake()
-    elif "Breakout" :
+    elif "Breakout" in env_name:
         return config_atari()
     else:
-        return config_continuous()
+        print("using config_minatar")
+        return config_minatar()
