@@ -305,14 +305,19 @@ class MyModel(object):
     Tensorboard stuff.
     """
     # extra placeholders to log stuff from python
-    self.avg_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="avg_reward")
+    # self.avg_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="avg_reward")
+    self.avg_reward_placeholder_list = []
+    for i in range(self.num_actors):
+      self.avg_reward_placeholder_list.append(tf.placeholder(tf.float32, shape=(), name="avg_reward/actor_{}".format(i)))
+      tf.summary.scalar("reward/Avg_{}".format(i), self.avg_reward_placeholder_list[i])
+
     self.max_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="max_reward")
     self.std_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="std_reward")
 
     self.eval_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="eval_reward")
 
     # extra summaries from python -> placeholders
-    tf.summary.scalar("reward/Avg", self.avg_reward_placeholder)
+    # tf.summary.scalar("reward/Avg", self.avg_reward_placeholder)
     tf.summary.scalar("reward/Max", self.max_reward_placeholder)
     tf.summary.scalar("reward/Std", self.std_reward_placeholder)
     tf.summary.scalar("reward/Eval", self.eval_reward_placeholder)
@@ -329,17 +334,21 @@ class MyModel(object):
     """
     Defines extra attributes for tensorboard.
     """
-    self.avg_reward = 0.
+    # self.avg_reward = 0.
+    self.avg_reward_list = []
+    for i in range(self.num_actors):
+      self.avg_reward_list.append(0.)
     self.max_reward = 0.
     self.std_reward = 0.
     self.eval_reward = 0.
 
-  def update_averages(self, rewards, scores_eval):
+  def update_averages(self, rewards, scores_eval, idx):
     """
     Update the averages.
     """
     print(rewards)
-    self.avg_reward = np.mean(rewards)
+    # self.avg_reward = np.mean(rewards)
+    self.avg_reward_list[idx] = np.mean(rewards)
     self.max_reward = np.max(rewards)
     self.std_reward = np.sqrt(np.var(rewards) / len(rewards))
 
@@ -352,7 +361,7 @@ class MyModel(object):
     """
 
     fd = {
-      self.avg_reward_placeholder: self.avg_reward,
+      # self.avg_reward_placeholder: self.avg_reward,
       self.max_reward_placeholder: self.max_reward,
       self.std_reward_placeholder: self.std_reward,
       self.eval_reward_placeholder: self.eval_reward,
@@ -361,6 +370,8 @@ class MyModel(object):
       self.advantage_placeholder: advantages,
       self.baseline_target_placeholder: returns,
     }
+    for i in range(self.num_actors):
+      fd[self.avg_reward_placeholder_list[i]] = self.avg_reward_list[i]
     summary = self.sess.run(self.merged, feed_dict=fd)
     # tensorboard stuff
     self.file_writer.add_summary(summary, t)
@@ -495,7 +506,7 @@ class MyModel(object):
         self.update_actor(observations, actions, advantages, i)
 
         # summary
-        self.update_averages(total_rewards, scores_eval)
+        self.update_averages(total_rewards, scores_eval, i)
         self.record_summary(t, observations, actions, advantages, returns)
 
         # compute reward statistics for this batch and log

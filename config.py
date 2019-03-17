@@ -167,7 +167,7 @@ class config_minatar:
         self.use_cnn=False
         self.use_small_cnn=True
         self.n_layers=1
-        self.layer_size=128
+        self.layer_size=512
         self.num_actors=2
         self.heterogeneity=True
         # [[# layers, layer size] * # of configs] 
