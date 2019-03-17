@@ -92,6 +92,16 @@ class MyModel(object):
     dir_root = os.path.join("results/", env_name)
     dir_name = get_result_dir(dir_root)
     self.output_path= os.path.join(dir_root, dir_name)
+    # Enable multi actors
+
+    # Multi actor params
+    self.num_actors = self.config.num_actors
+    self.update_actor_ops = []
+    self.sampled_action_list = []
+    self.actor_loss_list = []
+    self.policy_entropy_list = []
+    self.lr_actor_op = None
+
     assert not(self.use_cnn and self.use_small_cnn)
     # build model
     self.build()
@@ -105,7 +115,7 @@ class MyModel(object):
     self.action_placeholder = tf.placeholder(tf.int32, shape=[None,])
     self.advantage_placeholder = tf.placeholder(tf.float32, shape=[None,])
 
-  def add_actor_network_op(self, scope = "actor"):
+  def add_actor_network_op(self, idx, scope = "actor"):
     state_tensor=self.observation_placeholder
     if self.use_cnn:
       state_tensor=build_cnn(state_tensor, scope)
@@ -119,23 +129,39 @@ class MyModel(object):
     print(action_logits.get_shape())
     policy_entropy = -tf.reduce_sum(tf.nn.softmax(action_logits) * tf.nn.log_softmax(action_logits), -1)
     print(policy_entropy.get_shape())
-    self.policy_entropy = tf.reduce_sum(policy_entropy)
-    self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
-    self.logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
-    self.actor_loss = -tf.reduce_mean(self.logprob * self.advantage_placeholder)
+    policy_entropy = tf.reduce_sum(policy_entropy)
+    #self.sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis=1)
+    # Add one more sampled action
+    self.sampled_action_list.append(tf.squeeze(tf.multinomial(action_logits, 1), axis=1))
+
+    logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
+    actor_loss = -tf.reduce_mean(logprob * self.advantage_placeholder)
     # self.actor_loss = self.actor_loss - self.policy_entropy * 0.001
     global_step = tf.train.get_or_create_global_step()
-    tf.summary.scalar("debug/global_step", global_step)
+    if idx == 0:
+      tf.summary.scalar("debug/global_step", global_step)
     print("[actor]num_env_frames", global_step)
-    learning_rate = tf.train.polynomial_decay(self.config.lr_actor, global_step,
+    if idx == 0:
+      # only the first actor updates lr
+      learning_rate = tf.train.polynomial_decay(self.config.lr_actor, global_step,
                                                   self.config.number_of_iterations, 0)
+      self.lr_actor_op = learning_rate
+    else:
+      learning_rate = self.lr_actor_op
     #learning_rate = tf.train.exponential_decay(self.config.lr_actor,
     #                                           self.config.number_of_iterations,
     #                                           1000, 0.96, staircase=False)
-    tf.summary.scalar("lr/actor", learning_rate)
+    if idx == 0:
+      tf.summary.scalar("lr/actor", learning_rate)
     #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
-    self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss, global_step = global_step)
+    #self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss, global_step = global_step)
+    self.update_actor_ops.append(tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(actor_loss, global_step = global_step))
+
+    # add variables for summary
+    self.actor_loss_list.append(actor_loss)
+    self.policy_entropy_list.append(policy_entropy)
+
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder
@@ -216,8 +242,14 @@ class MyModel(object):
 
       print(self.sess.run(self.baseline, feed_dict={self.observation_placeholder: state_vector}))
 
-  def update_actor(self, observations, actions, advantages):
-    self.sess.run(self.update_actor_op, feed_dict={self.observation_placeholder: observations, self.action_placeholder: actions, self.advantage_placeholder : advantages})
+  def update_actor(self, observations, actions, advantages, actor_idx):
+    self.sess.run(
+      self.update_actor_ops[actor_idx],
+      feed_dict={
+        self.observation_placeholder: observations,
+        self.action_placeholder: actions,
+        self.advantage_placeholder : advantages
+      })
 
 
   def build(self):
@@ -234,7 +266,8 @@ class MyModel(object):
     # add placeholders
     self.add_placeholders_op()
     # create actor
-    self.add_actor_network_op()
+    for i in range(self.num_actors):
+      self.add_actor_network_op(i, scope="actor{}".format(i))
     # create critic
     self.add_critic_network_op()
 
@@ -268,8 +301,9 @@ class MyModel(object):
     tf.summary.scalar("reward/Std", self.std_reward_placeholder)
     tf.summary.scalar("reward/Eval", self.eval_reward_placeholder)
 
-    tf.summary.scalar("debug/policy_entropy", self.policy_entropy)
-    tf.summary.scalar("debug/actor_loss", self.actor_loss)
+    for i in range(self.num_actors):
+      tf.summary.scalar("debug1/policy_entropy_{}".format(i), self.policy_entropy_list[i])
+      tf.summary.scalar("debug/actor_loss_{}".format(i), self.actor_loss_list[i])
     tf.summary.scalar("debug/critic_loss", self.critic_loss)
     # logging
     self.merged = tf.summary.merge_all()
@@ -315,7 +349,7 @@ class MyModel(object):
     # tensorboard stuff
     self.file_writer.add_summary(summary, t)
 
-  def sample_path(self, env, num_episodes = None):
+  def sample_path(self, env, actor_idx, num_episodes = None):
     """
     Sample paths (trajectories) from the environment.
 
@@ -348,7 +382,8 @@ class MyModel(object):
           if isinstance(self.env.observation_space, gym.spaces.Discrete):
             state = [state]
         states.append(state)
-        action = self.sess.run(self.sampled_action, feed_dict={self.observation_placeholder : [states[-1]]})[0]
+        action = self.sess.run(self.sampled_action_list[actor_idx],
+                               feed_dict={self.observation_placeholder : [states[-1]]})[0]
         #env.render()
         state, reward, done, info = env.step(action)
         actions.append(action)
@@ -424,32 +459,34 @@ class MyModel(object):
 
     for t in range(self.number_of_iterations):
 
-      # collect a batch of samples
-      paths, total_rewards = self.sample_path(self.env)
-      scores_eval = scores_eval + total_rewards
-      observations = np.concatenate([path["observation"] for path in paths])
-      #print("observations", observations)
-      #print("observations shape", observations.shape)
-      actions = np.concatenate([path["action"] for path in paths])
-      rewards = np.concatenate([path["reward"] for path in paths])
-      # compute Q-val estimates (discounted future returns) for each time step
-      returns = self.get_returns(paths)
-      advantages = self.calculate_advantage(returns, observations)
+      for i in range(self.num_actors):
+        # collect a batch of samples
+        paths, total_rewards = self.sample_path(self.env, i)
+        scores_eval = scores_eval + total_rewards
+        observations = np.concatenate([path["observation"] for path in paths])
+        #print("observations", observations)
+        #print("observations shape", observations.shape)
+        actions = np.concatenate([path["action"] for path in paths])
+        rewards = np.concatenate([path["reward"] for path in paths])
+        # compute Q-val estimates (discounted future returns) for each time step
+        returns = self.get_returns(paths)
+        advantages = self.calculate_advantage(returns, observations)
 
-      # run training operations
-      for step_i in range(self.step_timescale):
-        self.update_critic(returns, observations)
-      self.update_actor(observations, actions, advantages)
+        # run training operations
+        for step_i in range(self.step_timescale):
+          self.update_critic(returns, observations)
 
-      # summary
-      self.update_averages(total_rewards, scores_eval)
-      self.record_summary(t, observations, actions, advantages, returns)
+        self.update_actor(observations, actions, advantages, i)
 
-      # compute reward statistics for this batch and log
-      avg_reward = np.mean(total_rewards)
-      sigma_reward = np.sqrt(np.var(total_rewards) / len(total_rewards))
-      msg = str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
-      print(msg)
+        # summary
+        self.update_averages(total_rewards, scores_eval)
+        self.record_summary(t, observations, actions, advantages, returns)
+
+        # compute reward statistics for this batch and log
+        avg_reward = np.mean(total_rewards)
+        sigma_reward = np.sqrt(np.var(total_rewards) / len(total_rewards))
+        msg = "[{}] ".format(i) + str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
+        print(msg)
 
       if (t+1)%10==1:
          self.check_critic()

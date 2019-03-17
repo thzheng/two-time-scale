@@ -21,6 +21,7 @@ class config_cartpole:
         self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=16
+        self.num_actors=1
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -48,6 +49,7 @@ class config_frozenlake:
         self.use_small_cnn=False
         self.n_layers=1
         self.layer_size=16
+        self.num_actors=1
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -74,6 +76,7 @@ class config_pong:
         self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=64
+        self.num_actors=1
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -100,6 +103,7 @@ class config_continuous:
         self.use_small_cnn=False
         self.n_layers=2
         self.layer_size=16
+        self.num_actors=1
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -126,6 +130,7 @@ class config_atari:
         self.use_small_cnn=False
         self.n_layers=1
         self.layer_size=512
+        self.num_actors=1
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -141,8 +146,8 @@ class config_minatar:
         self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
-        self.step_timescale = 2
-        self.lr_actor = 0.01
+        self.step_timescale = 1
+        self.lr_actor = 0.001
         # Training parameters
         self.number_of_iterations=int(1e6)
         self.iteration_size=1000
@@ -153,6 +158,7 @@ class config_minatar:
         self.use_small_cnn=True
         self.n_layers=1
         self.layer_size=128
+        self.num_actors=4
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
