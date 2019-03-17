@@ -96,6 +96,10 @@ class MyModel(object):
 
     # Multi actor params
     self.num_actors = self.config.num_actors
+    self.heterogeneity = self.config.heterogeneity
+    if self.heterogeneity:
+      self.mlp_big_little_config = self.config.mlp_big_little_config
+      self.mlp_big_little_map = self.config.mlp_big_little_map
     self.update_actor_ops = []
     self.sampled_action_list = []
     self.actor_loss_list = []
@@ -124,7 +128,10 @@ class MyModel(object):
 
     print("state_tensor.get_shape()")
     print(state_tensor.get_shape())
-    action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
+    if self.heterogeneity:
+      action_logits = build_mlp(state_tensor, self.action_dim, scope, self.mlp_big_little_config[self.mlp_big_little_map[idx]][0], self.mlp_big_little_config[self.mlp_big_little_map[idx]][1])
+    else:
+      action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
     print("action_logits.get_shape()")
     print(action_logits.get_shape())
     policy_entropy = -tf.reduce_sum(tf.nn.softmax(action_logits) * tf.nn.log_softmax(action_logits), -1)
