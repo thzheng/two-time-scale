@@ -396,7 +396,7 @@ class MyModel(object):
     # tensorboard stuff
     self.file_writer.add_summary(summary, t)
 
-  def sample_path(self, env, actor_idx, num_episodes = None):
+  def sample_path(self, env, actor_idx, num_episodes = None, render=False):
     """
     Sample paths (trajectories) from the environment.
 
@@ -433,6 +433,18 @@ class MyModel(object):
                                feed_dict={self.observation_placeholder : [states[-1]]})[0]
         #env.render()
         state, reward, done, info = env.step(action)
+        if render:
+            render_state = state[:,:,0]
+            render_state = render_state * env.nchannels + env.nchannels/2.0
+            #print()
+            rs2 = [[str(int(x)) if x != 0 else " " for x in l] for l in render_state]
+            frame = ''
+            for row in rs2:
+                frame = frame + ' '.join(row) + "\n"
+            sys.stdout.write(frame)
+            sys.stdout.flush()
+            if done:
+                print('-------------------------------------------------')
         actions.append(action)
         rewards.append(reward)
         episode_reward += reward
@@ -508,7 +520,11 @@ class MyModel(object):
 
       for i in range(self.num_actors):
         # collect a batch of samples
-        paths, total_rewards = self.sample_path(self.env, i)
+        if t % 50 == 1:
+            render = True
+        else:
+            render = False
+        paths, total_rewards = self.sample_path(self.env, i, render=render)
         scores_eval = scores_eval + total_rewards
         observations = np.concatenate([path["observation"] for path in paths])
         #print("observations", observations)
@@ -546,7 +562,7 @@ class MyModel(object):
     episodes.
     """
     if env==None: env = self.env
-    paths, rewards = self.sample_path(env, num_episodes)
+    paths, rewards = self.sample_path(env, num_episodes, render=True)
     avg_reward = np.mean(rewards)
     sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
     msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
