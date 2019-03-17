@@ -36,3 +36,14 @@ def build_cnn(cnn_input, scope):
                       activation=tf.nn.relu, use_bias=True, kernel_initializer=weight_initer, bias_initializer=tf.zeros_initializer(), kernel_regularizer=None,
                       bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None, trainable=True, name=None, reuse=False)
     return tf.layers.flatten(x)
+
+def build_configurable_cnn(cnn_input, channels, filters, scope):
+  weight_initer = tf.truncated_normal_initializer(mean=0.0, stddev=0.1)
+  n_layers=len(channels)
+  with tf.variable_scope(scope):
+    x=cnn_input
+    for i in range(n_layers):
+      x=tf.layers.conv2d(x, channels[i], filters[i], 1, padding='valid', data_format='channels_last', dilation_rate=(1, 1),
+                        activation=tf.nn.relu, use_bias=True, kernel_initializer=weight_initer, bias_initializer=tf.zeros_initializer(), kernel_regularizer=None,
+                        bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, bias_constraint=None, trainable=True, name=None, reuse=False)
+    return tf.layers.flatten(x)

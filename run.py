@@ -6,7 +6,7 @@ import gym
 from lake_envs import *
 import time
 import argparse
-from model import build_cnn, build_small_cnn
+from model import build_cnn, build_small_cnn, build_configurable_cnn
 from model import build_mlp
 from config import get_config
 from atari_wrappers import wrap_deepmind
@@ -100,6 +100,10 @@ class MyModel(object):
     if self.heterogeneity:
       self.mlp_big_little_config = self.config.mlp_big_little_config
       self.mlp_big_little_map = self.config.mlp_big_little_map
+    self.heterogeneity_cnn = self.config.heterogeneity_cnn
+    if self.heterogeneity_cnn:
+      self.cnn_big_little_config = self.config.cnn_big_little_config
+      self.cnn_big_little_map = self.config.cnn_big_little_map
     self.update_actor_ops = []
     self.sampled_action_list = []
     self.actor_loss_list = []
@@ -121,7 +125,10 @@ class MyModel(object):
 
   def add_actor_network_op(self, idx, scope = "actor"):
     state_tensor=self.observation_placeholder
-    if self.use_cnn:
+    if self.heterogeneity_cnn:
+      print(self.cnn_big_little_config[self.cnn_big_little_map[idx]][0])
+      state_tensor=build_configurable_cnn(state_tensor, self.cnn_big_little_config[self.cnn_big_little_map[idx]][0], self.cnn_big_little_config[self.cnn_big_little_map[idx]][1], scope)
+    elif self.use_cnn:
       state_tensor=build_cnn(state_tensor, scope)
     elif self.use_small_cnn:
       state_tensor=build_small_cnn(state_tensor, scope)

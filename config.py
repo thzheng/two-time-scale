@@ -23,6 +23,7 @@ class config_cartpole:
         self.layer_size=16
         self.num_actors=1
         self.heterogeneity=False
+        self.heterogeneity_cnn=False
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -52,6 +53,7 @@ class config_frozenlake:
         self.layer_size=16
         self.num_actors=1
         self.heterogeneity=False
+        self.heterogeneity_cnn=False
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -80,6 +82,7 @@ class config_pong:
         self.layer_size=64
         self.num_actors=1
         self.heterogeneity=False
+        self.heterogeneity_cnn=False
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -108,6 +111,7 @@ class config_continuous:
         self.layer_size=16
         self.num_actors=1
         self.heterogeneity=False
+        self.heterogeneity_cnn=False
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -136,6 +140,7 @@ class config_atari:
         self.layer_size=512
         self.num_actors=1
         self.heterogeneity=False
+        self.heterogeneity_cnn=False
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -163,11 +168,14 @@ class config_minatar:
         self.use_small_cnn=True
         self.n_layers=1
         self.layer_size=128
-        self.num_actors=4
+        self.num_actors=2
         self.heterogeneity=True
         # [[# layers, layer size] * # of configs] 
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
         self.mlp_big_little_map=[0, 1, 2, 2]
+        self.heterogeneity_cnn=True
+        self.cnn_big_little_config=[[[64, 128], [3, 5]], [[32, 32], [3, 3]]]
+        self.cnn_big_little_map=[0, 1, 1, 1]
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
