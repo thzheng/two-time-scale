@@ -170,14 +170,34 @@ class MyModel(object):
     #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss, global_step = global_step)
+
     if idx != 0:
       global_step=None
-    self.update_actor_ops.append(tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(actor_loss, global_step = global_step))
+    optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01)
+    grad_var_pairs = optimizer.compute_gradients(actor_loss)
+    vars = [x[1] for x in grad_var_pairs]
+    grads = [x[0] for x in grad_var_pairs]
+    print("actor", idx)
+    print(vars)
+    print(grads)
+    self.record_grads(idx, vars, grads, "")
+    clipped, _ = tf.clip_by_global_norm(grads, 40)
+    self.record_grads(idx, vars, clipped, "_clipped")
+    #tf.summary.histogram("grad/actor_clipped_{}".format(idx), clipped)
+    train_op = optimizer.apply_gradients(zip(clipped, vars), global_step=global_step)
+
+    self.update_actor_ops.append(train_op)
 
     # add variables for summary
     self.actor_loss_list.append(actor_loss)
     self.policy_entropy_list.append(policy_entropy)
 
+  def record_grads(self, idx, vars, grads, tag):
+      for i, v in enumerate(vars):
+        if grads[i] is None:
+          # Skip None gradients from other actors
+          continue
+        tf.summary.histogram("grad{}/actor_{}_{}".format(tag, idx, v), grads[i])
 
   def add_critic_network_op(self, scope = "critic"):
     state_tensor=self.observation_placeholder

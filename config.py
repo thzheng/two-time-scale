@@ -169,8 +169,8 @@ class config_minatar:
         self.n_layers=1
         self.layer_size=512
         self.num_actors=2
-        self.heterogeneity=True
-        # [[# layers, layer size] * # of configs] 
+        self.heterogeneity=False
+        # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
         self.mlp_big_little_map=[0, 1, 2, 2]
         self.heterogeneity_cnn=True
