@@ -143,7 +143,7 @@ class MyModel(object):
     print("[actor]num_env_frames", global_step)
     if idx == 0:
       # only the first actor updates lr
-      learning_rate = tf.train.polynomial_decay(self.config.lr_actor, global_step,
+      learning_rate = tf.train.polynomial_decay(self.lr_actor, global_step,
                                                   self.config.number_of_iterations, 0)
       self.lr_actor_op = learning_rate
     else:
@@ -156,6 +156,8 @@ class MyModel(object):
     #self.update_actor_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(self.actor_loss)
     #self.update_actor_op = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(self.actor_loss, global_step = global_step)
+    if idx != 0:
+      global_step=None
     self.update_actor_ops.append(tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0, epsilon=0.01).minimize(actor_loss, global_step = global_step))
 
     # add variables for summary

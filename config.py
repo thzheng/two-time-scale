@@ -8,9 +8,9 @@ class config_cartpole:
         self.use_optimal_baseline = False
         self.wrap=False
         # Timescale parameters
-        self.lr_timescale = 1.0
+        self.lr_timescale = 10.0
         self.step_timescale = 1
-        self.lr_actor = 0.01
+        self.lr_actor = 0.0001
         # Training parameters
         self.number_of_iterations=1000
         self.iteration_size=1000
@@ -118,7 +118,7 @@ class config_atari:
         self.wrap=True
         # Timescale parameters
         self.lr_timescale = 1.0
-        self.step_timescale = 2
+        self.step_timescale = 1
         self.lr_actor = 0.0006
         # Training parameters
         self.number_of_iterations=int(1e8)
@@ -147,7 +147,7 @@ class config_minatar:
         # Timescale parameters
         self.lr_timescale = 1.0
         self.step_timescale = 1
-        self.lr_actor = 0.001
+        self.lr_actor = 0.01
         # Training parameters
         self.number_of_iterations=int(1e6)
         self.iteration_size=1000
