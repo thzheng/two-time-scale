@@ -179,8 +179,8 @@ class config_minatar:
         self.max_ep_len=-1
         self.gamma=0.99
         # model parameters
-        self.use_cnn=False
-        self.use_small_cnn=True
+        self.use_cnn=True
+        self.use_small_cnn=False
         self.n_layers=1
         self.layer_size=128
         self.num_actors=2
@@ -193,7 +193,7 @@ class config_minatar:
         self.cnn_big_little_map=[1, 1, 1, 1]
         # 0 never reset
         self.reset_interval=100
-        self.dropout = 0.5
+        self.dropout =None
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:

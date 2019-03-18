@@ -233,7 +233,7 @@ class MyModel(object):
 
   def calculate_advantage(self, returns, observations):
     adv = returns
-    #print(returns)
+    print(returns)
     #print(returns.shape)
     baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
     baseline_old = baseline
