@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=None):
+def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=None, dropout=None):
   print("build_mlp")
   print(output_size)
   weight_initer = tf.truncated_normal_initializer(mean=0.0, stddev=0.1)
@@ -10,6 +10,10 @@ def build_mlp(mlp_input, output_size, scope, n_layers, size, output_activation=N
     for i in range(n_layers):
       x = tf.layers.dense(x, size, activation=tf.nn.relu,
                           kernel_initializer=weight_initer)
+      if dropout is not None:
+          x = tf.layers.dropout(
+            inputs=x, rate=dropout, training=True)
+
     return tf.layers.dense(x, output_size, activation=output_activation,
                            kernel_initializer=weight_initer)
 
