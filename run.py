@@ -44,8 +44,8 @@ class MyModel(object):
     self.rendering = self.config.rendering
 
     wrap = self.config.wrap
-    use_minatar = not hasattr(self.env.unwrapped, "ale")
-    if use_minatar:
+    self.use_minatar = hasattr(self.env.unwrapped, "nchannels")
+    if self.use_minatar:
       print("MinAtar doesn't support wrap")
       wrap = False
 
@@ -69,7 +69,7 @@ class MyModel(object):
       assert(len(self.state_shape)==3)
 
     self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if use_minatar:
+    if self.use_minatar:
       print("action_dim discrete")
       self.discrete = True
     self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
@@ -113,6 +113,9 @@ class MyModel(object):
     self.perf_ratio = 0.9
     self.reset_interval = self.config.reset_interval
 
+    # Dropout
+    self.dropout = self.config.dropout
+
     assert not(self.use_cnn and self.use_small_cnn)
     # build model
     self.build()
@@ -141,7 +144,9 @@ class MyModel(object):
     if self.heterogeneity:
       action_logits = build_mlp(state_tensor, self.action_dim, scope, self.mlp_big_little_config[self.mlp_big_little_map[idx]][0], self.mlp_big_little_config[self.mlp_big_little_map[idx]][1])
     else:
-      action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size)
+      dropout=self.dropout
+      print("Dropout rate", dropout)
+      action_logits = build_mlp(state_tensor, self.action_dim, scope, self.n_layers, self.layer_size, dropout=dropout)
     print("action_logits.get_shape()")
     print(action_logits.get_shape())
     policy_entropy = -tf.reduce_sum(tf.nn.softmax(action_logits) * tf.nn.log_softmax(action_logits), -1)
@@ -375,7 +380,7 @@ class MyModel(object):
     """
     Update the averages.
     """
-    print(rewards)
+    #print(rewards)
     # self.avg_reward = np.mean(rewards)
     self.avg_reward_list[idx] = np.mean(rewards)
     self.max_reward = np.max(rewards)
@@ -454,7 +459,7 @@ class MyModel(object):
             with open(outfile, "a") as f:
                 f.write(frame)
                 if done:
-                    f.write('-------------------------------------------------')
+                    f.write("-------------------------------------------------\n")
                 f.flush()
         actions.append(action)
         rewards.append(reward)
@@ -539,9 +544,11 @@ class MyModel(object):
       for i in range(self.num_actors):
         # collect a batch of samples
         if t % 50 == 1:
-            render = True
+            render = True if self.use_minatar else False
         else:
             render = False
+        print("render", render)
+        #print("self.use_minatar", self.use_minatar)
         paths, total_rewards = self.sample_path(self.env, i, render=render, num_step=t)
         scores_eval = scores_eval + total_rewards
         observations = np.concatenate([path["observation"] for path in paths])
@@ -551,7 +558,10 @@ class MyModel(object):
         rewards = np.concatenate([path["reward"] for path in paths])
         # compute Q-val estimates (discounted future returns) for each time step
         returns = self.get_returns(paths)
+        #print("returns", returns)
         advantages = self.calculate_advantage(returns, observations)
+        #print("advantages", advantages)
+
 
         # run training operations
         for step_i in range(self.step_timescale):
