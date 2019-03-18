@@ -24,6 +24,8 @@ class config_cartpole:
         self.num_actors=1
         self.heterogeneity=False
         self.heterogeneity_cnn=False
+        # 0 never reset
+        self.reset_interval=0
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -54,6 +56,8 @@ class config_frozenlake:
         self.num_actors=1
         self.heterogeneity=False
         self.heterogeneity_cnn=False
+        # 0 never reset
+        self.reset_interval=0
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -83,6 +87,8 @@ class config_pong:
         self.num_actors=1
         self.heterogeneity=False
         self.heterogeneity_cnn=False
+        # 0 never reset
+        self.reset_interval=0
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -112,6 +118,8 @@ class config_continuous:
         self.num_actors=1
         self.heterogeneity=False
         self.heterogeneity_cnn=False
+        # 0 never reset
+        self.reset_interval=0
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -141,6 +149,8 @@ class config_atari:
         self.num_actors=1
         self.heterogeneity=False
         self.heterogeneity_cnn=False
+        # 0 never reset
+        self.reset_interval=0
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:
@@ -159,7 +169,7 @@ class config_minatar:
         self.step_timescale = 1
         self.lr_actor = 0.01
         # Training parameters
-        self.number_of_iterations=int(1e6)
+        self.number_of_iterations=int(1e4)
         self.iteration_size=1000
         self.max_ep_len=-1
         self.gamma=0.99
@@ -172,10 +182,12 @@ class config_minatar:
         self.heterogeneity=True
         # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
-        self.mlp_big_little_map=[0, 1, 1, 1]
+        self.mlp_big_little_map=[1, 1, 1, 1]
         self.heterogeneity_cnn=True
-        self.cnn_big_little_config=[[[64, 128], [3, 5]], [[32, 32], [3, 3]]]
-        self.cnn_big_little_map=[0, 1, 1, 1]
+        self.cnn_big_little_config=[[[64, 128], [3, 5]], [[32, 64], [3, 3]]]
+        self.cnn_big_little_map=[1, 1, 1, 1]
+        # 0 never reset
+        self.reset_interval=100
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
         if self.max_ep_len < 0:

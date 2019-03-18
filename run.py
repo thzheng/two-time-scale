@@ -109,6 +109,9 @@ class MyModel(object):
     self.actor_loss_list = []
     self.policy_entropy_list = []
     self.lr_actor_op = None
+    self.reset_actor_ops = []
+    self.perf_ratio = 0.9
+    self.reset_interval = self.config.reset_interval
 
     assert not(self.use_cnn and self.use_small_cnn)
     # build model
@@ -150,7 +153,7 @@ class MyModel(object):
 
     logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
     actor_loss = -tf.reduce_mean(logprob * self.advantage_placeholder)
-    actor_loss = actor_loss - policy_entropy * 0.0001
+    actor_loss = actor_loss - policy_entropy * 0.00001
     global_step = tf.train.get_or_create_global_step()
     if idx == 0:
       tf.summary.scalar("debug/global_step", global_step)
@@ -191,6 +194,9 @@ class MyModel(object):
     # add variables for summary
     self.actor_loss_list.append(actor_loss)
     self.policy_entropy_list.append(policy_entropy)
+
+    # add reset op
+    self.reset_actor_ops.append(tf.initializers.variables(tf.trainable_variables(scope=scope)))
 
   def record_grads(self, idx, vars, grads, tag):
       for i, v in enumerate(vars):
@@ -287,6 +293,9 @@ class MyModel(object):
         self.advantage_placeholder : advantages
       })
 
+  def reset_actor(self, actor_idx):
+    print("Reset actor: " + str(actor_idx))
+    self.sess.run(self.reset_actor_ops[actor_idx])
 
   def build(self):
     """
@@ -520,7 +529,12 @@ class MyModel(object):
     self.init_averages()
     scores_eval = [] # list of scores computed at iteration time
 
+    # moving avearge of average rewards: p(n+1)=p(n)*self.perf_ratio+reward*(1-self.perf_ratio)
+    actor_perf = [0 for i in range(self.num_actors)]
+
     for t in range(self.number_of_iterations):
+      # which actor to reset, if necessary
+      reset_actor_idx = None
 
       for i in range(self.num_actors):
         # collect a batch of samples
@@ -555,8 +569,17 @@ class MyModel(object):
         msg = "[{}] ".format(i) + str(t) + " Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
         print(msg)
 
+        # compute moving average
+        actor_perf[i]=actor_perf[i]*self.perf_ratio+avg_reward*(1.-self.perf_ratio)
+        if reset_actor_idx == None or actor_perf[i] < actor_perf[reset_actor_idx]:
+          reset_actor_idx = i
+
       if (t+1)%10==1:
          self.check_critic()
+
+      if self.reset_interval>0 and  t%self.reset_interval == self.reset_interval - 1:
+        self.reset_actor(reset_actor_idx)
+
     print("- Training done.")
 
   def evaluate(self, env=None, num_episodes=1):
