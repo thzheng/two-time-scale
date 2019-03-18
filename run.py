@@ -150,7 +150,7 @@ class MyModel(object):
 
     logprob = -1*tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.action_placeholder, logits=action_logits)
     actor_loss = -tf.reduce_mean(logprob * self.advantage_placeholder)
-    # self.actor_loss = self.actor_loss - self.policy_entropy * 0.001
+    actor_loss = actor_loss - policy_entropy * 0.0001
     global_step = tf.train.get_or_create_global_step()
     if idx == 0:
       tf.summary.scalar("debug/global_step", global_step)
