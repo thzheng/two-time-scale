@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import numpy as np
 import tensorflow as tf
 import gym
@@ -92,6 +93,9 @@ class MyModel(object):
     dir_root = os.path.join("results/", env_name)
     dir_name = get_result_dir(dir_root)
     self.output_path= os.path.join(dir_root, dir_name)
+    os.mkdir(self.output_path)
+    with open(os.path.join(self.output_path, "config.json"), "w") as f:
+        json.dump(vars(self.config), f)
     # Enable multi actors
 
     # Multi actor params
@@ -233,7 +237,7 @@ class MyModel(object):
 
   def calculate_advantage(self, returns, observations):
     adv = returns
-    print(returns)
+    #print(returns)
     #print(returns.shape)
     baseline=self.sess.run(self.baseline, feed_dict={self.observation_placeholder: observations})
     baseline_old = baseline
@@ -547,7 +551,7 @@ class MyModel(object):
             render = True if self.use_minatar else False
         else:
             render = False
-        print("render", render)
+        #print("render", render)
         #print("self.use_minatar", self.use_minatar)
         paths, total_rewards = self.sample_path(self.env, i, render=render, num_step=t)
         scores_eval = scores_eval + total_rewards
