@@ -171,7 +171,7 @@ class config_minatar:
         self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
-        self.step_timescale = 4
+        self.step_timescale = 1
         self.lr_actor = 0.01
         # Training parameters
         self.number_of_iterations=30000
@@ -183,7 +183,7 @@ class config_minatar:
         self.use_small_cnn=True
         self.n_layers=1
         self.layer_size=128
-        self.num_actors=1
+        self.num_actors=2
         self.heterogeneity=False
         # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
