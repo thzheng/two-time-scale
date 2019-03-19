@@ -183,12 +183,12 @@ class config_minatar:
         self.use_small_cnn=True
         self.n_layers=1
         self.layer_size=128
-        self.num_actors=4
+        self.num_actors=1
         self.heterogeneity=False
         # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
         self.mlp_big_little_map=[0, 0, 0, 0]
-        self.heterogeneity_cnn=True
+        self.heterogeneity_cnn=False
         self.cnn_big_little_config=[[[64, 128], [3, 5]], [[32, 64], [3, 3]]]
         self.cnn_big_little_map=[0, 0, 0, 0]
         # 0 never reset
