@@ -187,12 +187,12 @@ class config_minatar:
         self.heterogeneity=False
         # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
-        self.mlp_big_little_map=[1, 1, 1, 1]
+        self.mlp_big_little_map=[0, 0, 0, 0]
         self.heterogeneity_cnn=True
         self.cnn_big_little_config=[[[64, 128], [3, 5]], [[32, 64], [3, 3]]]
-        self.cnn_big_little_map=[1, 1, 1, 1]
+        self.cnn_big_little_map=[0, 0, 0, 0]
         # 0 never reset
-        self.reset_interval=100
+        self.reset_interval=0
         self.dropout =None
         # since we start new episodes for each batch
         assert self.max_ep_len <= self.iteration_size
