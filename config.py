@@ -170,8 +170,8 @@ class config_minatar:
         self.use_optimal_baseline = False
         self.wrap=False
         # Timescale parameters
-        self.lr_timescale = 4.0
-        self.step_timescale = 1
+        self.lr_timescale = 1.0
+        self.step_timescale = 2
         self.lr_actor = 0.01
         # Training parameters
         self.number_of_iterations=30000
