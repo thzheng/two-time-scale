@@ -171,7 +171,7 @@ class config_minatar:
         self.wrap=False
         # Timescale parameters
         self.lr_timescale = 1.0
-        self.step_timescale = 2
+        self.step_timescale = 4
         self.lr_actor = 0.01
         # Training parameters
         self.number_of_iterations=30000
