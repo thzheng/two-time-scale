@@ -90,7 +90,7 @@ class MyModel(object):
     self.n_layers=self.config.n_layers
     self.layer_size=self.config.layer_size
 
-    dir_root = os.path.join("results/", env_name)
+    dir_root = os.path.join("results_final/", env_name)
     dir_name = get_result_dir(dir_root)
     self.output_path= os.path.join(dir_root, dir_name)
     os.mkdir(self.output_path)

@@ -174,16 +174,16 @@ class config_minatar:
         self.step_timescale = 1
         self.lr_actor = 0.01
         # Training parameters
-        self.number_of_iterations=int(1e4)
+        self.number_of_iterations=30000
         self.iteration_size=1000
         self.max_ep_len=-1
         self.gamma=0.99
         # model parameters
-        self.use_cnn=True
-        self.use_small_cnn=False
+        self.use_cnn=False
+        self.use_small_cnn=True
         self.n_layers=1
         self.layer_size=128
-        self.num_actors=2
+        self.num_actors=1
         self.heterogeneity=False
         # [[# layers, layer size] * # of configs]
         self.mlp_big_little_config=[[2, 256], [1, 128], [1, 64]]
